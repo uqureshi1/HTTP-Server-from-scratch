@@ -6,28 +6,44 @@ function statusResponse(statusCode, statusMessage) {
     return `HTTP/1.1 ${statusCode} ${statusMessage} ${CRLF}`;
 }
 
-function extractHeaders(request) {
+function parseRequestObject(request) {
     const [requestHeaders, requestBody] = request.split(CRLF + CRLF);
 
     const headersObject = {};
-    const [statusLine, otherHeaders] = requestHeaders.split(CRLF);
+    const [statusLine, ...otherHeaders] = requestHeaders.split(CRLF);
     const [method, path, _] = statusLine.split(" ");
     headersObject["method"] = method;
     headersObject["path"] = path;
 
-    Array(otherHeaders).forEach(element => {
+    otherHeaders.forEach(element => {
         let [name, value] = element.split(": ")
         headersObject[name] = value
     });
-    return headersObject
+    return [headersObject, requestBody]
+}
+
+function Route(socket, header) {
+    if (header.path === "/") {
+        socket.write(statusResponse(200, "OK") + CRLF)
+
+    } else if (header.path.startsWith('/echo/')) {
+        const parsedWord = header.path.split('/echo/')[1]
+        socket.write(statusResponse(200, 'OK'))
+        socket.write('Content-Type: text/plain' + CRLF)
+        socket.write(`Content-Length: ${parsedWord.length}` + CRLF)
+        socket.write(CRLF)
+        socket.write(parsedWord)
+
+    } else {
+        socket.write(statusResponse(404, "NOT FOUND") + CRLF)
+    }
 }
 
 const server = net.createServer((socket) => {
     socket.on("data", (data) => {
         const content = data.toString()
-        const headers = extractHeaders(content)
-        httpResponse = headers.path === "/" ? socket.write(statusResponse(200, "OK") + CRLF) : socket.write(statusResponse(404, "NOT FOUND") + CRLF)
-        socket.write(httpResponse)
+        const [header, body] = parseRequestObject(content)
+        Route(socket, header)
         socket.end();
     });
 });
