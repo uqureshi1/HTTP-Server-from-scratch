@@ -33,13 +33,26 @@ function Route(socket, header) {
         socket.write(`Content-Length: ${parsedWord.length}` + CRLF)
         socket.write(CRLF)
         socket.write(parsedWord)
+        socket.write(CRLF)
 
+    } else if (header.path.startsWith('/user-agent')) {
+        let userAgent = header["User-Agent"]
+        socket.write(statusResponse(200, 'OK'))
+        socket.write('Content-Type: text/plain' + CRLF)
+        socket.write(`Content-Length: ${userAgent.length}` + CRLF)
+        socket.write(CRLF)
+        socket.write(userAgent)
+        socket.write(CRLF)
     } else {
         socket.write(statusResponse(404, "NOT FOUND") + CRLF)
     }
 }
 
 const server = net.createServer((socket) => {
+    socket.on("close", () => {
+        socket.end();
+    });
+
     socket.on("data", (data) => {
         const content = data.toString()
         const [header, body] = parseRequestObject(content)
